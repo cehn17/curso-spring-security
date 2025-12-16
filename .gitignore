@@ -1,0 +1,13 @@
+# IntelliJ / IDEs
+.idea/
+*.iml
+
+# Maven / Gradle
+**/target/
+**/.mvn/
+
+# Logs
+*.log
+
+# SO
+.DS_Store
