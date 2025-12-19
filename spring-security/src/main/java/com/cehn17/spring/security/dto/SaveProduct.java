@@ -12,7 +12,7 @@ public class SaveProduct implements Serializable {
     @NotBlank
     private String name;
 
-    @DecimalMin(value = "0.01")
+    @DecimalMin(value = "0.01", message = "el precio debe de ser mayor a cero")
     private BigDecimal price;
 
     @Min(value = 1)
@@ -41,4 +41,5 @@ public class SaveProduct implements Serializable {
     public void setCategoryId(Long categoryId) {
         this.categoryId = categoryId;
     }
+
 }
