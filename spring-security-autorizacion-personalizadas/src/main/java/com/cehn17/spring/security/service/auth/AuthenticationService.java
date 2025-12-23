@@ -5,7 +5,9 @@ import com.cehn17.spring.security.dto.SaveUser;
 import com.cehn17.spring.security.dto.auth.AuthenticationRequest;
 import com.cehn17.spring.security.dto.auth.AuthenticationResponse;
 import com.cehn17.spring.security.exception.ObjectNotFoundException;
+import com.cehn17.spring.security.persistence.entity.security.JwtToken;
 import com.cehn17.spring.security.persistence.entity.security.User;
+import com.cehn17.spring.security.persistence.repository.security.JwtTokenRepository;
 import com.cehn17.spring.security.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,9 +17,11 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class AuthenticationService {
@@ -31,8 +35,14 @@ public class AuthenticationService {
     @Autowired
     private AuthenticationManager authenticationManager;
 
+    @Autowired
+    private JwtTokenRepository jwtTokenRepository;
+
     public RegisteredUser registerOneCustomeer(SaveUser newUser) {
         User user = userService.registerOneCustomer(newUser);
+        String jwt = jwtService.generateToken(user, generateExtraClaims(user));
+
+        saveUserToken(user,jwt);
 
         RegisteredUser userDto = new RegisteredUser();
         userDto.setId(user.getId());
@@ -40,7 +50,6 @@ public class AuthenticationService {
         userDto.setUsername(user.getUsername());
         userDto.setRole(user.getRole().getName());
 
-        String jwt = jwtService.generateToken(user, generateExtraClaims(user));
         userDto.setJwt(jwt);
 
         return userDto;
@@ -68,10 +77,21 @@ public class AuthenticationService {
 
         String jwt = jwtService.generateToken(user, generateExtraClaims((User) user));
 
+        saveUserToken((User) user,jwt);
+
         AuthenticationResponse response = new AuthenticationResponse();
 
         response.setJwt(jwt);
         return response;
+    }
+
+    private void saveUserToken(User user, String jwt) {
+        JwtToken jwtToken = new JwtToken();
+        jwtToken.setToken(jwt);
+        jwtToken.setUser(user);
+        jwtToken.setExpiration(jwtService.extractExpiration(jwt));
+        jwtToken.setValid(true);
+        jwtTokenRepository.save(jwtToken);
     }
 
     public boolean validateToken(String jwt) {
@@ -97,5 +117,15 @@ public class AuthenticationService {
     }
 
     public void logout(HttpServletRequest request) {
+        String jwt = jwtService.extractJwtFromRequest(request);
+        if(jwt == null || !StringUtils.hasText(jwt))
+            return;
+
+        Optional<JwtToken> token = jwtTokenRepository.findByToken(jwt);
+        if(token.isPresent() && token.get().isValid()) {
+            token.get().setValid(false);
+            jwtTokenRepository.save(token.get());
+        }
+
     }
 }
